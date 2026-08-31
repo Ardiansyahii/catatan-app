@@ -2,7 +2,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import TodoScreen from "./TodoScreen";
 import NotesScreen from "./NotesScreen";
-import useThemeStore, { getThemeColors } from "../store/useThemeStore";
+import useThemeStore, { getThemeColors } from "../src/store/useThemeStore";
 
 const Tab = createBottomTabNavigator();
 

@@ -1,11 +1,4 @@
-import { create } from "zustand";
-
-const useThemeStore = create((set) => ({
-  isDark: false,
-  toggleTheme: () => set((state) => ({ isDark: !state.isDark })),
-}));
-
-const lightColors = {
+export const lightColors = {
   bg: "#f1f5f9",
   card: "#ffffff",
   text: "#1e293b",
@@ -16,7 +9,7 @@ const lightColors = {
   headerBg: "#2563eb",
 };
 
-const darkColors = {
+export const darkColors = {
   bg: "#0f172a",
   card: "#1e293b",
   text: "#f1f5f9",
@@ -27,8 +20,17 @@ const darkColors = {
   headerBg: "#1e40af",
 };
 
+export const accent = {
+  danger: "#ef4444",
+  dangerBg: "#fee2e2",
+  white: "#fff",
+  black: "#000",
+  shadow: "rgba(0,0,0,0.06)",
+  shadowHeavy: "rgba(0,0,0,0.35)",
+  modalOverlay: "rgba(0,0,0,0.5)",
+  headerBtnBg: "rgba(255,255,255,0.2)",
+};
+
 export function getThemeColors(isDark) {
   return isDark ? darkColors : lightColors;
 }
-
-export default useThemeStore;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,44 +12,26 @@ import {
   Platform,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { supabase } from "../lib/supabase";
-import useThemeStore, { getThemeColors } from "../store/useThemeStore";
+import useAuth from "../src/hooks/useAuth";
+import useNotes from "../src/hooks/useNotes";
+import useThemeStore, { getThemeColors } from "../src/store/useThemeStore";
+import ScreenHeader from "../src/components/ScreenHeader";
+import EmptyState from "../src/components/EmptyState";
 
 export default function NotesScreen({ navigation }) {
   const { isDark } = useThemeStore();
   const colors = getThemeColors(isDark);
+  const { user, checkAuth } = useAuth(navigation);
+  const { notes, loading, addNote, updateNote, deleteNote } = useNotes(user?.id);
 
-  const [notes, setNotes] = useState([]);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
-  const [userId, setUserId] = useState(null);
-
-  const loadNotes = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      navigation.replace("Login");
-      return;
-    }
-    setUserId(user.id);
-
-    const { data, error } = await supabase
-      .from("notes")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (!error) setNotes(data);
-    setLoading(false);
-  }, [navigation]);
 
   useEffect(() => {
-    loadNotes();
-  }, [loadNotes]);
+    checkAuth();
+  }, []);
 
   function openAddModal() {
     setEditingNote(null);
@@ -72,19 +54,10 @@ export default function NotesScreen({ navigation }) {
     }
 
     if (editingNote) {
-      const { error } = await supabase
-        .from("notes")
-        .update({ title: title.trim(), content: content.trim() })
-        .eq("id", editingNote.id);
+      const { error } = await updateNote(editingNote.id, title, content);
       if (error) Alert.alert("Error", error.message);
     } else {
-      const { error } = await supabase
-        .from("notes")
-        .insert({
-          title: title.trim(),
-          content: content.trim(),
-          user_id: userId,
-        });
+      const { error } = await addNote(title, content);
       if (error) Alert.alert("Error", error.message);
     }
 
@@ -92,28 +65,17 @@ export default function NotesScreen({ navigation }) {
     setTitle("");
     setContent("");
     setEditingNote(null);
-    loadNotes();
   }
 
-  async function handleDelete(id) {
-    const confirmAction = async () => {
-      const { error } = await supabase.from("notes").delete().eq("id", id);
-
-      if (error) {
-        if (Platform.OS === "web") alert("Gagal hapus: " + error.message);
-        else Alert.alert("Error", error.message);
-      } else {
-        setNotes((prevNotes) => prevNotes.filter((note) => note.id !== id));
-      }
-    };
+  function handleDelete(id) {
+    const doRemove = () => deleteNote(id);
 
     if (Platform.OS === "web") {
-      const confirmDelete = window.confirm("Yakin ingin hapus catatan ini?");
-      if (confirmDelete) confirmAction();
+      if (window.confirm("Yakin ingin hapus catatan ini?")) doRemove();
     } else {
       Alert.alert("Hapus Catatan", "Yakin ingin hapus?", [
         { text: "Batal", style: "cancel" },
-        { text: "Hapus", style: "destructive", onPress: confirmAction },
+        { text: "Hapus", style: "destructive", onPress: doRemove },
       ]);
     }
   }
@@ -128,7 +90,10 @@ export default function NotesScreen({ navigation }) {
           <Text style={[styles.noteTitle, { color: colors.text }]}>
             {item.title}
           </Text>
-          <Text style={[styles.noteText, { color: colors.textSec }]} numberOfLines={2}>
+          <Text
+            style={[styles.noteText, { color: colors.textSec }]}
+            numberOfLines={2}
+          >
             {item.content}
           </Text>
           <Text style={[styles.noteDate, { color: colors.placeholder }]}>
@@ -167,23 +132,14 @@ export default function NotesScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      <View style={[styles.header, { backgroundColor: colors.headerBg }]}>
-        <View style={styles.headerLeft}>
-          <Feather name="file-text" size={22} color="#fff" />
-          <Text style={styles.headerTitle}>Catatan Saya</Text>
-        </View>
-      </View>
+      <ScreenHeader title="Catatan Saya" icon="file-text" />
 
       {notes.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Feather name="file-text" size={64} color={colors.border} />
-          <Text style={[styles.emptyText, { color: colors.textSec }]}>
-            Belum ada catatan
-          </Text>
-          <Text style={[styles.emptySubtext, { color: colors.placeholder }]}>
-            Tekan tombol + untuk menambah catatan
-          </Text>
-        </View>
+        <EmptyState
+          icon="file-text"
+          title="Belum ada catatan"
+          subtitle="Tekan tombol + untuk menambah catatan"
+        />
       ) : (
         <FlatList
           data={notes}
@@ -231,7 +187,9 @@ export default function NotesScreen({ navigation }) {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.text }]}>Isi Catatan</Text>
+              <Text style={[styles.label, { color: colors.text }]}>
+                Isi Catatan
+              </Text>
               <TextInput
                 style={[
                   styles.modalInput,
@@ -279,20 +237,6 @@ export default function NotesScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  headerTitle: { fontSize: 20, fontWeight: "bold", color: "#fff" },
   list: { padding: 16 },
   noteCard: {
     borderRadius: 14,
@@ -307,28 +251,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   noteContent: { flex: 1 },
-  noteTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
+  noteTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 4 },
   noteText: { fontSize: 14, marginBottom: 8 },
   noteDate: { fontSize: 12 },
-  noteActions: {
-    flexDirection: "column",
-    gap: 8,
-    marginLeft: 12,
-  },
-  editBtn: {
-    padding: 8,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  deleteBtn: {
-    padding: 8,
-    borderRadius: 8,
-    alignItems: "center",
-  },
+  noteActions: { flexDirection: "column", gap: 8, marginLeft: 12 },
+  editBtn: { padding: 8, borderRadius: 8, alignItems: "center" },
+  deleteBtn: { padding: 8, borderRadius: 8, alignItems: "center" },
   fab: {
     position: "absolute",
     bottom: 30,
@@ -344,14 +272,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-  },
-  emptyText: { fontSize: 18, fontWeight: "600" },
-  emptySubtext: { fontSize: 14 },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -371,18 +291,8 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 20, fontWeight: "bold" },
   inputGroup: { marginBottom: 16 },
-  label: {
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 6,
-    marginLeft: 4,
-  },
-  modalInput: {
-    borderWidth: 1.5,
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 15,
-  },
+  label: { fontSize: 13, fontWeight: "600", marginBottom: 6, marginLeft: 4 },
+  modalInput: { borderWidth: 1.5, borderRadius: 12, padding: 14, fontSize: 15 },
   contentInput: { height: 130, textAlignVertical: "top" },
   modalButtons: {
     flexDirection: "row",

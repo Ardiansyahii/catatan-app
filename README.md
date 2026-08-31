@@ -1,56 +1,111 @@
-# Welcome to your Expo app 👋
+# Catatan App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplikasi catatan dan to-do list dengan React Native (Expo) menggunakan Supabase sebagai backend dan Zustand untuk state management.
 
-## Get started
+## Struktur Folder (Clean Architecture)
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+catatan-app/
+├── App.tsx                          # Entry point, Stack Navigator
+├── lib/
+│   └── supabase.js                  # Supabase client singleton
+├── screens/
+│   ├── LoginScreen.js               # Halaman login & register
+│   ├── MainTab.js                   # Tab Navigator (Todo + Catatan)
+│   ├── TodoScreen.js                # Halaman to-do list
+│   └── NotesScreen.js               # Halaman catatan
+├── src/
+│   ├── constants/
+│   │   ├── colors.js                # Warna tema (light/dark) & aksen
+│   │   └── config.js                # Konfigurasi Supabase (URL, key)
+│   ├── services/
+│   │   ├── authService.js           # Autentikasi (signUp, signIn, signOut)
+│   │   ├── todoService.js           # CRUD todos ke Supabase
+│   │   └── noteService.js           # CRUD notes ke Supabase
+│   ├── hooks/
+│   │   ├── useAuth.js               # State autentikasi user
+│   │   ├── useTodos.js              # State & aksi to-do list
+│   │   └── useNotes.js              # State & aksi catatan
+│   ├── components/
+│   │   ├── ScreenHeader.js          # Header bare reusable
+│   │   └── EmptyState.js            # Empty state bare reusable
+│   └── store/
+│       └── useThemeStore.js         # Zustand store untuk dark/light mode
+├── assets/                          # Ikon & gambar
+├── package.json
+└── tsconfig.json
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Arsitektur
 
-### Other setup steps
+### Layer Diagram
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```
+┌─────────────────────────────────────┐
+│            SCREENS (UI)             │  ← Hanya rendering & event handlers
+├─────────────────────────────────────┤
+│             HOOKS                   │  ← State management & logic
+├─────────────────────────────────────┤
+│           SERVICES                  │  ← API calls ke Supabase
+├─────────────────────────────────────┤
+│          CONSTANTS                  │  ← Warna, config, konstanta
+└─────────────────────────────────────┘
+```
 
-## Learn more
+### Prinsip Clean Architecture
 
-To learn more about developing your project with Expo, look at the following resources:
+1. **Tidak ada import `supabase` langsung di screens** — semua akses database lewat service
+2. **Setiap fitur punya service & hook masing-masing** — auth, todo, notes terpisah
+3. **Warna & konstanta terpusat** — tidak ada hardcode di screens
+4. **Screens hanya panggil hooks & susun components** — logika ada di hooks
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Flow Data
 
-## Join the community
+```
+User Input → Screen → Hook → Service → Supabase
+                 ↑              ↓
+              Re-render ← State Update
+```
 
-Join our community of developers creating universal apps.
+## Tech Stack
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- **React Native** (Expo SDK 57)
+- **Zustand** — State management (theme)
+- **Supabase** — Backend (Auth + Database)
+- **React Navigation** — Navigasi (Stack + Bottom Tab)
+
+## Fitur
+
+- ✅ Register & Login (Supabase Auth)
+- ✅ CRUD Catatan (Create, Read, Update, Delete)
+- ✅ To-Do List dengan toggle selesai
+- ✅ Dark/Light Mode (Zustand)
+- ✅ Data tersimpan di Supabase, terfilter per user
+- ✅ Tab Navigator (Todo + Catatan)
+
+## Menjalankan
+
+```bash
+npm install
+npx expo start
+```
+
+## Database Schema
+
+### Tabel `notes`
+| Kolom | Tipe | Keterangan |
+|-------|------|------------|
+| id | UUID | Primary key |
+| user_id | UUID | Foreign key ke auth.users |
+| title | TEXT | Judul catatan |
+| content | TEXT | Isi catatan |
+| created_at | TIMESTAMPTZ | Waktu pembuatan |
+
+### Tabel `todos`
+| Kolom | Tipe | Keterangan |
+|-------|------|------------|
+| id | UUID | Primary key |
+| user_id | UUID | Foreign key ke auth.users |
+| text | TEXT | Teks todo |
+| done | BOOLEAN | Status selesai |
+| created_at | TIMESTAMPTZ | Waktu pembuatan |

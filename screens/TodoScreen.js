@@ -10,41 +10,28 @@ import {
   Platform,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { supabase } from "../lib/supabase";
-import useTodoStore from "../store/useTodoStore";
-import useThemeStore, { getThemeColors } from "../store/useThemeStore";
+import useAuth from "../src/hooks/useAuth";
+import useTodos from "../src/hooks/useTodos";
+import useThemeStore, { getThemeColors } from "../src/store/useThemeStore";
+import ScreenHeader from "../src/components/ScreenHeader";
+import EmptyState from "../src/components/EmptyState";
 
 export default function TodoScreen({ navigation }) {
-  const [text, setText] = useState("");
-  const { todos, setUserId, fetchTodos, addTodo, toggleTodo, removeTodo } =
-    useTodoStore();
   const { isDark, toggleTheme } = useThemeStore();
   const colors = getThemeColors(isDark);
-
-  const remainingCount = todos.filter((t) => !t.done).length;
+  const { user, checkAuth, logout } = useAuth(navigation);
+  const { todos, remainingCount, addTodo, toggleTodo, removeTodo } =
+    useTodos(user?.id);
+  const [text, setText] = useState("");
 
   useEffect(() => {
-    (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        navigation.replace("Login");
-        return;
-      }
-      setUserId(user.id);
-      await fetchTodos();
-    })();
+    checkAuth();
   }, []);
 
   function handleAdd() {
     if (!text.trim()) return;
     addTodo(text);
     setText("");
-  }
-
-  function handleToggle(id) {
-    toggleTodo(id);
   }
 
   function handleRemove(id) {
@@ -61,7 +48,7 @@ export default function TodoScreen({ navigation }) {
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    await logout();
     navigation.replace("Login");
   }
 
@@ -70,13 +57,16 @@ export default function TodoScreen({ navigation }) {
       <View style={[styles.todoCard, { backgroundColor: colors.card }]}>
         <TouchableOpacity
           style={styles.todoContent}
-          onPress={() => handleToggle(item.id)}
+          onPress={() => toggleTodo(item.id)}
         >
           <View
             style={[
               styles.checkbox,
               { borderColor: colors.border },
-              item.done && { backgroundColor: colors.headerBg, borderColor: colors.headerBg },
+              item.done && {
+                backgroundColor: colors.headerBg,
+                borderColor: colors.headerBg,
+              },
             ]}
           >
             {item.done && <Feather name="check" size={14} color="#fff" />}
@@ -85,14 +75,17 @@ export default function TodoScreen({ navigation }) {
             style={[
               styles.todoText,
               { color: colors.text },
-              item.done && { textDecorationLine: "line-through", color: colors.textSec },
+              item.done && {
+                textDecorationLine: "line-through",
+                color: colors.textSec,
+              },
             ]}
           >
             {item.text}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.deleteBtn}
+          style={[styles.deleteBtn, { backgroundColor: "#fee2e2" }]}
           onPress={() => handleRemove(item.id)}
         >
           <Feather name="trash-2" size={16} color="#ef4444" />
@@ -103,37 +96,50 @@ export default function TodoScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      <View style={[styles.header, { backgroundColor: colors.headerBg }]}>
-        <View style={styles.headerLeft}>
-          <Feather name="check-circle" size={22} color="#fff" />
-          <Text style={styles.headerTitle}>To-Do List</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.themeBtn}
-            onPress={toggleTheme}
-          >
-            <Feather
-              name={isDark ? "sun" : "moon"}
-              size={18}
-              color="#fff"
-            />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <Feather name="log-out" size={18} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <ScreenHeader
+        title="To-Do List"
+        icon="check-circle"
+        rightActions={
+          <>
+            <TouchableOpacity style={[styles.themeBtn, { backgroundColor: "rgba(255,255,255,0.2)" }]} onPress={toggleTheme}>
+              <Feather name={isDark ? "sun" : "moon"} size={18} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.logoutBtn, { backgroundColor: "rgba(255,255,255,0.2)" }]}
+              onPress={handleLogout}
+            >
+              <Feather name="log-out" size={18} color="#fff" />
+            </TouchableOpacity>
+          </>
+        }
+      />
 
-      <View style={[styles.remainingBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+      <View
+        style={[
+          styles.remainingBar,
+          { backgroundColor: colors.card, borderBottomColor: colors.border },
+        ]}
+      >
         <Text style={[styles.remainingText, { color: colors.textSec }]}>
           {remainingCount} tersisa
         </Text>
       </View>
 
-      <View style={[styles.inputRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+      <View
+        style={[
+          styles.inputRow,
+          { backgroundColor: colors.card, borderBottomColor: colors.border },
+        ]}
+      >
         <TextInput
-          style={[styles.input, { color: colors.text, backgroundColor: colors.inputBg, borderColor: colors.border }]}
+          style={[
+            styles.input,
+            {
+              color: colors.text,
+              backgroundColor: colors.inputBg,
+              borderColor: colors.border,
+            },
+          ]}
           placeholder="Tambah todo baru..."
           placeholderTextColor={colors.placeholder}
           value={text}
@@ -150,15 +156,11 @@ export default function TodoScreen({ navigation }) {
       </View>
 
       {todos.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Feather name="clipboard" size={64} color={colors.border} />
-          <Text style={[styles.emptyText, { color: colors.textSec }]}>
-            Belum ada todo
-          </Text>
-          <Text style={[styles.emptySubtext, { color: colors.placeholder }]}>
-            Ketik di atas dan tekan + untuk menambah
-          </Text>
-        </View>
+        <EmptyState
+          icon="clipboard"
+          title="Belum ada todo"
+          subtitle="Ketik di atas dan tekan + untuk menambah"
+        />
       ) : (
         <FlatList
           data={todos}
@@ -173,35 +175,6 @@ export default function TodoScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  headerTitle: { fontSize: 20, fontWeight: "bold", color: "#fff" },
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  themeBtn: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-    padding: 10,
-    borderRadius: 10,
-  },
-  logoutBtn: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-    padding: 10,
-    borderRadius: 10,
-  },
   remainingBar: {
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -258,16 +231,9 @@ const styles = StyleSheet.create({
   },
   todoText: { fontSize: 15, flex: 1 },
   deleteBtn: {
-    backgroundColor: "#fee2e2",
     padding: 8,
     borderRadius: 8,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-  },
-  emptyText: { fontSize: 18, fontWeight: "600" },
-  emptySubtext: { fontSize: 14 },
+  themeBtn: { padding: 10, borderRadius: 10 },
+  logoutBtn: { padding: 10, borderRadius: 10 },
 });

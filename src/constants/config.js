@@ -1,0 +1,3 @@
+export const SUPABASE_URL = "https://tastahllxtzsvfitmekk.supabase.co";
+export const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhc3RhaGxseHR6c3ZmaXRtZWtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1NjA1OTksImV4cCI6MjEwMzEzNjU5OX0.fr844JzpGEzR0ABfGm7puTHUK2xndXZrVU8XVG_oiCM";
